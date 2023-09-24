@@ -1,92 +1,57 @@
-// https://docs.metamask.io/guide/ethereum-provider.html#using-the-provider
+import { getSession, signOut } from "next-auth/react";
 
-import React, {useState} from 'react'
-import {ethers} from 'ethers'
+function handleClick(event) {
+    const { ethers } = require("ethers");
 
-const User = () => {
+    const INFURA_ID = 'f0b44e8935f0455291e3756b591b3afd'
+    const provider =  new ethers.providers.JsonRpcProvider("https://goerli.infura.io/v3/" + INFURA_ID)
 
-	// deploy simple storage contract and paste deployed contract address here. This value is local ganache chain
-	let contractAddress = '0xF2245ee151D1614004422713a52DA1C98610bA9c';
+    const ERC20_ABI = require("./../abi.json");  
 
-	const [errorMessage, setErrorMessage] = useState(null);
-	const [defaultAccount, setDefaultAccount] = useState(null);
-	const [connButtonText, setConnButtonText] = useState('Connect Wallet');
 
-	const [currentContractVal, setCurrentContractVal] = useState(null);
-    const ABI = require("./../abi.json");
-	const [provider, setProvider] = useState(null);
-	const [signer, setSigner] = useState(null);
-	const [contract, setContract] = useState(null);
+    const address = '0xF2245ee151D1614004422713a52DA1C98610bA9c'
+    const contract = new ethers.Contract(address, ERC20_ABI, provider)
+    const main = async () => {
+        try{
+            await window.ethereum.request({ method: 'eth_requestAccounts' });
+            const provider = new ethers.providers.Web3Provider(window.ethereum);
+            const buyPrice = await contract.getBuyPriceAfterFee('0x2565f34AD40306aA164f42C7Cd402e8D329D0980',1);
+            const valueInWei = ethers.utils.parseEther(buyPrice.toString());
+            console.log('Name: ' + valueInWei)    
+            const signer = provider.getSigner();
+            console.log("estimate gas")
+            const estimatedGas = await contract.estimateGas.buyaccessTokens('0x2565f34AD40306aA164f42C7Cd402e8D329D0980', 1, {
+                value: valueInWei
+            });
+            
+            const finalGasLimit = Math.max(estimatedGas, gasLimit); 
+            console.log(finalGasLimit)         
+            const tx = await contract.connect(signer).buyaccessTokens('0x2565f34AD40306aA164f42C7Cd402e8D329D0980', 1, {
+                    value: valueInWei,
+                    gasLimit: finalGasLimit
+                });
+            await tx.wait();
+            
+            
+            await tx.wait();
+            console.log(tx)
+        }catch(error){console.error("Error fetching data: ", error);}
+    
+    };
+    
+    main()    
 
-	const connectWalletHandler = () => {
-		if (window.ethereum && window.ethereum.isMetaMask) {
-
-			window.ethereum.request({ method: 'eth_requestAccounts'})
-			.then(result => {
-				accountChangedHandler(result[0]);
-				setConnButtonText('Wallet Connected');
-			})
-			.catch(error => {
-				setErrorMessage(error.message);
-			
-			});
-
-		} else {
-			console.log('Need to install MetaMask');
-			setErrorMessage('Please install MetaMask browser extension to interact');
-		}
-	}
-
-	// update account, will cause component re-render
-	const accountChangedHandler = (newAccount) => {
-		setDefaultAccount(newAccount);
-		updateEthers();
-	}
-
-	const updateEthers = () => {
-		let tempProvider = new ethers.providers.Web3Provider(window.ethereum);
-		setProvider(tempProvider);
-
-		let tempSigner = tempProvider.getSigner();
-		setSigner(tempSigner);
-
-		let tempContract = new ethers.Contract(contractAddress, ABI, tempSigner);
-		setContract(tempContract);	
-	}
-
-	const setHandler = async (event) => {
-		event.preventDefault();
-		const buyPrice = await contract.getBuyPriceAfterFee('0x1b8FAF40eB34f67c3821525141E88F331e8fc4c0',1);
-        console.log('Name: ' + buyPrice)
-        setSigner(provider.getSigner());
-        await ethereum.request({ method: "eth_requestAccounts" });
-        await contract.buyaccessTokens(buyPrice, '0x1b8FAF40eB34f67c3821525141E88F331e8fc4c0', 1);
-
-	}
-
-	const getCurrentVal = async () => {
-		let val = await contract.get();
-		setCurrentContractVal(val);
-	}
-	
-	return (
-		<div>
-		<h4> {"Get/Set Contract interaction"} </h4>
-			<button onClick={connectWalletHandler}>{connButtonText}</button>
-			<div>
-				<h3>Address: {defaultAccount}</h3>
-			</div>
-			<form onSubmit={setHandler}>
-				<input id="setText" type="text"/>
-				<button type={"submit"}> Update Contract </button>
-			</form>
-			<div>
-			<button onClick={getCurrentVal} style={{marginTop: '5em'}}> Get Current Contract Value </button>
-			</div>
-			{currentContractVal}
-			{errorMessage}
-		</div>
-	);
+}
+// gets a prop from getServerSideProps
+function User({ user }) {
+  return (
+    <div>
+      <h4>User session:</h4>
+      <pre>{JSON.stringify(user, null, 2)}</pre>
+      <button onClick={() => signOut({ redirect: "/signin" })}>Sign out</button>
+      <button onClick={handleClick}>Run Contract</button>
+    </div>
+  );
 }
 
 export default User;
